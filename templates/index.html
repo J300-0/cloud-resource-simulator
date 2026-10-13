@@ -1,0 +1,160 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cloud Resource Simulator</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 24px;
+            font-family: Arial, sans-serif;
+            background: #f1f5f9; color: #172033;
+        }
+        main { max-width: 1100px; margin: auto; }
+        h1 { color: #1746a2; }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px; margin: 20px 0;
+        }
+        .card, section {
+            background: white; padding: 18px;
+            border-radius: 12px; margin-bottom: 18px;
+        }
+        .number { font-size: 28px; font-weight: bold; }
+        input, select, button {
+            padding: 10px; margin: 5px 3px;
+            border: 1px solid #cbd5e1; border-radius: 6px;
+        }
+        button { background: #1746a2; color: white; cursor: pointer; }
+        .stop { background: #64748b; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 11px; text-align: left; border-bottom: 1px solid #ddd; }
+        .table-wrap { overflow-x: auto; }
+        .bar { background: #dbeafe; border-radius: 8px; height: 12px; }
+        .fill { background: #2563eb; height: 12px; border-radius: 8px; }
+        .muted { color: #64748b; }
+        @media(max-width: 600px) {
+            body { padding: 12px; }
+            th, td { padding: 7px; font-size: 13px; }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <h1>☁ Cloud Resource Manager</h1>
+    <p class="muted">Virtual machine allocation and auto-scaling simulator</p>
+
+    <div class="cards">
+        <div class="card">
+            <p>Running instances</p>
+            <div class="number">{{ running_count }}</div>
+        </div>
+        <div class="card">
+            <p>Total instances</p>
+            <div class="number">{{ total_count }}</div>
+        </div>
+        <div class="card">
+            <p>Allocated CPU cores</p>
+            <div class="number">{{ total_cpu }}</div>
+        </div>
+        <div class="card">
+            <p>Allocated RAM (GB)</p>
+            <div class="number">{{ total_ram }}</div>
+        </div>
+    </div>
+
+    <section>
+        <h2>Resource utilization</h2>
+        <p>CPU: {{ cpu_pct }}%</p>
+        <div class="bar"><div class="fill" style="width:{{ cpu_pct }}%"></div></div>
+        <p>RAM: {{ ram_pct }}%</p>
+        <div class="bar"><div class="fill" style="width:{{ ram_pct }}%"></div></div>
+        <p>Total configured storage: {{ total_storage }} GB</p>
+    </section>
+
+    <section>
+        <h2>Create virtual machine</h2>
+        <form action="/create" method="post">
+            <input name="name" placeholder="Instance name" maxlength="60" required>
+            <input name="cpu" type="number" min="1" max="32"
+                   placeholder="CPU cores" required>
+            <input name="ram" type="number" min="1" max="128"
+                   placeholder="RAM GB" required>
+            <input name="storage" type="number" min="1" max="2048"
+                   placeholder="Storage GB" required>
+            <button type="submit">Create instance</button>
+        </form>
+    </section>
+
+    <section>
+        <h2>Virtual machines</h2>
+        <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th><th>CPU</th><th>RAM</th>
+                    <th>Storage</th><th>Workload</th>
+                    <th>Status</th><th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for m in machines %}
+                <tr>
+                    <td>{{ m.name }}</td>
+                    <td>{{ m.cpu }}</td>
+                    <td>{{ m.ram }} GB</td>
+                    <td>{{ m.storage }} GB</td>
+                    <td>
+                        {% if m.status == 'Running' %}
+                        <form action="/workload/{{ m.id }}" method="post">
+                            <input type="number" name="workload"
+                                min="0" max="100" value="{{ m.workload }}"
+                                style="width:75px" required>
+                            <button type="submit">Set</button>
+                        </form>
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                    <td>{{ m.status }}</td>
+                    <td>
+                        <form action="/toggle/{{ m.id }}" method="post">
+                            <button class="stop" type="submit">
+                                {% if m.status == 'Running' %}Stop{% else %}Start{% endif %}
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="7">No machines yet. Create one above.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </section>
+
+    <section>
+        <h2>Auto-scaling simulator</h2>
+        <p>Average workload above 75%: add an instance.
+           Below 25%: stop one instance, if possible.</p>
+        <form action="/scale" method="post">
+            <button type="submit">Evaluate scaling</button>
+        </form>
+    </section>
+
+    <section>
+        <h2>Recent activity</h2>
+        <ul>
+        {% for e in events %}
+            <li>{{ e.created_at }} — {{ e.message }}</li>
+        {% else %}
+            <li>No activity recorded yet.</li>
+        {% endfor %}
+        </ul>
+    </section>
+</main>
+</body>
+</html>
